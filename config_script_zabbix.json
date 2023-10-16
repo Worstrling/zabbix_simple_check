@@ -1,0 +1,17 @@
+{
+    "subject_down_server": "Уведомление о недоступности сервера в системе мониторинга Zabbix",
+    "subject_error_script": "Система мониторинга Zabbix раоботает некорректнно, обнаруженна ошибка в работе скрипта.",
+    "message_down_server": "Система мониторинга Zabbix обнаружила проблему с доступностью сервера [{host_name}] в вашей инфраструктуре. На данный момент сервер находится в состоянии \"Недоступен\". Это может свидетельствовать о серьезной проблеме, которая требует вашего внимания. Детали проблемы:\n\n- Имя сервера: [{host_name}]\n- IP-адрес сервера: [{host_ip}:{host_port}]\n- Время последнего пинга: [{last_ping_time_formatted}]\n- Текущее состояние: \"Недоступен\"\n\nПожалуйста, примите необходимые меры для диагностики и устранения этой проблемы как можно скорее.",
+    "message_error_script": "Детали проблемы:\n- Тип ошибки: {e}\n- Путь до исполняемого файла: {script_path}",
+    "smtp_server":"smtp.gmail.com",
+    "smtp_port":587,
+    "smtp_username":"zzabbix495@gmail.com",
+    "smtp_password":"bems aspx dwcz oqpr ",
+    "from_email":"zabbix-server",
+    "to_email":"antarct1c.true@gmail.com",
+    "zabbix_server":"http://77.91.87.115/zabbix",
+    "zabbix_api_user":"Admin",
+    "zabbix_api_password":"zabbix",
+    "send_time_email":300,
+    "send_time_error_script":300
+}
