@@ -16,5 +16,6 @@
     "zabbix_api_password":"zabbix",
     "send_time_server_down":300,
     "send_time_error_script":300,
-    "send_time_service_down":300
+    "send_time_service_down":300,
+    "num_ping":5
 }
