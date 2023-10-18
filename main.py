@@ -37,12 +37,13 @@ def send_email(subject, message):
     smtp.quit()
     
 last_notification_time = None   
-last_notification_time_dict = {}
-
+last_notification_time_dict_server = {}
+last_notification_time_dict_service = {}
 def check_servers():
     global json_data
     global last_notification_time
-    global last_notification_time_dict
+    global last_notification_time_dict_server
+    global last_notification_time_dict_service
     icmp_ping_items_list = []
     zabbix_server = json_data['zabbix_server']
     zabbix_api_user = json_data['zabbix_api_user']
@@ -52,13 +53,16 @@ def check_servers():
     zapi.login(zabbix_api_user, zabbix_api_password)
 
     hosts = zapi.host.get(output='extend')
-    
     for host in hosts:
         try:
+            result_string = ''
+            not_active_services = {}
+            host_id = host['hostid']
             host_name = host['host']
             icmp_ping_items = zapi.item.get(output='extend', 
                                             hostids=host['hostid'], 
                                             search={'key_': 'icmpping'})
+                        
             if not icmp_ping_items:
                 continue
 
@@ -84,16 +88,36 @@ def check_servers():
             if host_info:
                 host_ip = host_info[0]['interfaces'][0]['ip']
                 host_port = host_info[0]['interfaces'][0]['port']
-
+            items = zapi.item.get(filter={"hostid": host_id})
+            for item in items:
+                if item['key_'].startswith('net') and not item['key_'].startswith('net.if.in'):
+                     if item['lastvalue'] != '1':
+                        parts = item['key_'].split(',')
+                        port = parts[-1].strip('[]')
+                        last_ping_time_service = item['lastclock']
+                        last_ping_time_formatted_service = datetime.fromtimestamp(int(last_ping_time_service)).strftime('%Y-%m-%d %H:%M:%S')
+                        service_name = item['name']
+                        not_active_services[service_name] = f"- IP-адрес сервера: [{host_ip}:{port}]\n- Время последнего пинга: [{last_ping_time_formatted_service}]"
+                        
+            for service_name, info in not_active_services.items():
+                    result_string += f"-Имя сервиса: {service_name}\n{info}\n- Текущее состояние: \"Недоступен\"\n\n"
             last_ping_time_formatted = datetime.fromtimestamp(int(last_ping_time)).strftime('%Y-%m-%d %H:%M:%S')
             if float(last_ping) > 0:
-                continue
-
+                if result_string:
+                    current_time = datetime.now()
+                    subject = json_data['subject_down_service']
+                    message = json_data['message_down_service'].format(
+                        host_name=host_name,
+                        result_string = result_string)
+                    send_time_service_down = json_data['send_time_service_down']
+                    if host_name not in last_notification_time_dict_service or \
+                        (current_time - last_notification_time_dict_service[host_name]).total_seconds() >= send_time_service_down:
+                        send_email(subject, message)
+                        last_notification_time_dict_service[host_name] = current_time 
             else:
-                send_time_email = json_data['send_time_email']
+                send_time_email = json_data['send_time_server_down']
                 current_time = datetime.now()
-                if host_name not in last_notification_time_dict or \
-                    (current_time - last_notification_time_dict[host_name]).total_seconds() >= send_time_email:
+                if host_name not in last_notification_time_dict_server or (current_time - last_notification_time_dict_server[host_name]).total_seconds() >= send_time_email:
                     subject = json_data["subject_down_server"]
                     message = json_data["message_down_server"].format(
                         host_name=host_name,
@@ -102,7 +126,7 @@ def check_servers():
                         last_ping_time_formatted=last_ping_time_formatted)
 
                     send_email(subject, message)
-                    last_notification_time_dict[host_name] = current_time
+                    last_notification_time_dict_server[host_name] = current_time
                     
         except Exception as e:
             send_time_error_script = json_data['send_time_error_script']
@@ -110,8 +134,8 @@ def check_servers():
             subject = json_data['subject_error_script']
             script_path = os.path.abspath(sys.argv[0])
             message = json_data['message_error_script'].format(
-                        e=e,
-                        script_path = script_path)
+                     e=e,
+                   script_path = script_path)
             
             if last_notification_time is None or (current_time - last_notification_time).total_seconds() >= send_time_error_script:
                 send_email(subject,message)
