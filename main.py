@@ -48,7 +48,7 @@ def check_servers():
     zabbix_server = json_data['zabbix_server']
     zabbix_api_user = json_data['zabbix_api_user']
     zabbix_api_password = json_data['zabbix_api_password']
-
+    num_ping = json_data['num_ping']
     zapi = ZabbixAPI(zabbix_server)
     zapi.login(zabbix_api_user, zabbix_api_password)
 
@@ -72,16 +72,15 @@ def check_servers():
                 icmp_ping_items_list.append(item['itemid'])
 
             item = icmp_ping_items_list[2]
-
             history = zapi.history.get(
                 output='extend',
                 itemids=item,
                 history=0,
                 sortfield='clock',
                 sortorder='DESC',
-                limit=2
+                limit=num_ping
             )
-
+        
             last_ping = history[0]['value']
             last_ping_time = history[0]['clock']
             host_info = zapi.host.get(filter={'host': host_name}, selectInterfaces='extend')
@@ -98,11 +97,17 @@ def check_servers():
                         last_ping_time_formatted_service = datetime.fromtimestamp(int(last_ping_time_service)).strftime('%Y-%m-%d %H:%M:%S')
                         service_name = item['name']
                         not_active_services[service_name] = f"- IP-адрес сервера: [{host_ip}:{port}]\n- Время последнего пинга: [{last_ping_time_formatted_service}]"
-                        
-            for service_name, info in not_active_services.items():
+            if not_active_services:           
+                for service_name, info in not_active_services.items():
                     result_string += f"-Имя сервиса: {service_name}\n{info}\n- Текущее состояние: \"Недоступен\"\n\n"
+                    
             last_ping_time_formatted = datetime.fromtimestamp(int(last_ping_time)).strftime('%Y-%m-%d %H:%M:%S')
-            if float(last_ping) > 0:
+            all_zero = all(float(history[i]['value'])== 0 for i in range(num_ping))
+            print([history[i]['value'] for i in range(num_ping)])
+            print(host_name)
+            print(all_zero)
+            
+            if not all_zero:
                 if result_string:
                     current_time = datetime.now()
                     subject = json_data['subject_down_service']
@@ -114,7 +119,7 @@ def check_servers():
                         (current_time - last_notification_time_dict_service[host_name]).total_seconds() >= send_time_service_down:
                         send_email(subject, message)
                         last_notification_time_dict_service[host_name] = current_time 
-            else:
+            if all_zero:
                 send_time_email = json_data['send_time_server_down']
                 current_time = datetime.now()
                 if host_name not in last_notification_time_dict_server or (current_time - last_notification_time_dict_server[host_name]).total_seconds() >= send_time_email:
@@ -127,7 +132,7 @@ def check_servers():
 
                     send_email(subject, message)
                     last_notification_time_dict_server[host_name] = current_time
-                    
+         
         except Exception as e:
             send_time_error_script = json_data['send_time_error_script']
             current_time = datetime.now()
@@ -141,6 +146,7 @@ def check_servers():
                 send_email(subject,message)
                 last_notification_time = current_time
             return 1         
+        
 
 schedule.every(15).seconds.do(check_servers)
 while True:
